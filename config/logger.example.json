@@ -1,0 +1,9 @@
+{
+  "raw_root": "D:/MoneyManData/raw",
+  "products": ["XRP-USD", "BTC-USD", "ETH-USD"],
+  "channels": ["ticker", "candles", "level2", "market_trades", "heartbeats", "status"],
+  "roll_interval_seconds": 600,
+  "flush_interval_messages": 100,
+  "progress_interval_messages": 5000,
+  "manifest_interval_messages": 5000
+}

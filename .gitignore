@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+config/logger.json
+*.pem
+*.key
+*.p8
+*.p12
+*.secret
+client-secret*.json
+credentials*.json
+secrets/
+
+# Local logs and runtime state
+logs/
+*.log
+*.pid
+*.tmp
+tmp/
+temp/
+
+# MoneyMan raw and derived market data
+data/raw/
+data/derived/
+data/catalog/
+data/quarantine/
+data/reports/
+raw/
+derived/
+catalog/
+quarantine/
+*_ws_data/
+*.jsonl
+*.jsonl.gz
+*.parquet
+*.feather
+*.duckdb
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.csv
+*.tsv
+
+# Tiny synthetic fixtures are intentionally committed. They are not market data.
+!tests/
+!tests/fixtures/
+!tests/fixtures/**/*.jsonl
+!tests/fixtures/**/*.json
+
+# Local reports and generated research artifacts
+reports/
+exports/
+notebooks/.ipynb_checkpoints/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
