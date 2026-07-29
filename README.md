@@ -1,8 +1,8 @@
 # MoneyMan
 
-MoneyMan is a local algorithmic-trading research project for Coinbase Advanced Trade market data, especially full level 2 order-book captures. It emphasizes auditable collection, deterministic reconstruction, conservative fill modeling, and reproducible backtests. Paper and live trading remain deliberately out of scope.
+MoneyMan is a local algorithmic-trading research project for Coinbase Advanced Trade market data, especially full level 2 order-book captures. It emphasizes auditable collection, deterministic reconstruction, conservative fill modeling, and reproducible backtest methods. Paper and live trading remain deliberately out of scope.
 
-> Portfolio snapshot: source code, tests, and technical documentation are included; raw market captures, generated datasets, machine-local configuration, private Git history, and internal operator handoffs are intentionally excluded.
+> **Public admissions-review snapshot.** MoneyMan is a personal research project I direct and maintain with AI-assisted coding tools. AI assistance was also used to audit and sanitize this copy. The source, tests, and research intent are retained; raw data and deployment-specific material remain private. See the [complete no-hash development graph](DEVELOPMENT_HISTORY.md) and [publication boundary](PUBLIC_REVIEW_SNAPSHOT.md).
 
 The longer research direction is real-time limit-order-book observation: use historical data for replay, calibration, and backtesting, then reuse the same normalization and feature interfaces on live WebSocket windows. ClusterLOB-style research is an inspiration, but MoneyMan should not add clustering, participant labels, spoofing claims, or live trading until the data foundation is ready.
 
