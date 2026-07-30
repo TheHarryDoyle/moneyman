@@ -2,22 +2,24 @@
 
 MoneyMan is a local algorithmic-trading research project for Coinbase Advanced Trade market data, especially full level 2 order-book captures. It emphasizes auditable collection, deterministic reconstruction, conservative fill modeling, and reproducible backtest methods. Paper and live trading remain deliberately out of scope.
 
-> **Public admissions-review snapshot.** MoneyMan is a personal research project I direct and maintain with AI-assisted coding tools. AI assistance was also used to audit and sanitize this copy. The source, tests, and research intent are retained; raw data and deployment-specific material remain private. See the [complete no-hash development graph](DEVELOPMENT_HISTORY.md) and [publication boundary](PUBLIC_REVIEW_SNAPSHOT.md).
+> **Public review snapshot.** MoneyMan is a personal research project I direct and maintain with AI-assisted coding tools. AI assistance was also used to audit and sanitize this copy. The source, tests, and research intent are retained; raw data and deployment-specific material remain private. See the [complete no-hash development graph](DEVELOPMENT_HISTORY.md) and [publication boundary](PUBLIC_REVIEW_SNAPSHOT.md).
+
+## Understand This Project
+
+The fastest review path is to follow the evidence from project boundary to data integrity to research result:
+
+| Review question | Best starting point | What it lets you verify |
+| --- | --- | --- |
+| What is implemented, limited, or next? | [Project state](docs/PROJECT_STATE.md) and [project plan](docs/PROJECT_PLAN.md) | Current boundaries, completed gates, known limitations, and the next portability check. |
+| Can a capture be checked independently of the collector that wrote it? | [`coinbase_ws_stable_logger.py`](coinbase_ws_stable_logger.py), [`moneyman/collector_audit.py`](moneyman/collector_audit.py), and [collector tests](tests/test_collector.py) | Public WebSocket capture, confined path handling, closed-file hashes, independently derived routing, and adversarial audit cases. |
+| How does raw input become canonical data without hiding defects? | [`moneyman/normalize.py`](moneyman/normalize.py), [normalization tests](tests/test_normalize.py), and [data layout](docs/DATA_LAYOUT.md) | Streaming table production, quarantine behavior, source-to-artifact binding, sequence findings, and count reconciliation. |
+| How are L2 books reconstructed and fills constrained? | [`moneyman/book.py`](moneyman/book.py), [`moneyman/l2_fills.py`](moneyman/l2_fills.py), [book contract](docs/L2_BOOK_RECONSTRUCTION.md), and [fill model](docs/L2_GRIDBOT_FILL_MODEL.md) | Gap-aware invalidation and recovery, deterministic outputs, visible-depth consumption, latency/clock rules, and conservation checks. |
+| What did the strategy experiments show, including negative results? | [`moneyman/reserve_gridbot.py`](moneyman/reserve_gridbot.py), [reserve-grid research](docs/RESERVE_GRIDBOT_RESEARCH.md), and [strategy tests](tests/test_reserve_gridbot.py) | Tagged-lot accounting, recovery diagnostics, causal controls, pre-registered comparisons, and results that did not justify enabling a feature. |
+| What was retained in this public copy? | [Development history](DEVELOPMENT_HISTORY.md) and [publication boundary](PUBLIC_REVIEW_SNAPSHOT.md) | The sanitized branch topology and the explicit boundary between retained source evidence and omitted local material. |
 
 The longer research direction is real-time limit-order-book observation: use historical data for replay, calibration, and backtesting, then reuse the same normalization and feature interfaces on live WebSocket windows. ClusterLOB-style research is an inspiration, but MoneyMan should not add clustering, participant labels, spoofing claims, or live trading until the data foundation is ready.
 
 This repository is for learning and research. It is not financial advice, and the project should not place live trades until the data pipeline, backtester, risk controls, and paper-trading path are proven.
-
-## Start Here
-
-- [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md): the human project plan and problem translation.
-- [docs/PROJECT_STATE.md](docs/PROJECT_STATE.md): current repo reality and next move.
-- [docs/RUNBOOK.md](docs/RUNBOOK.md): commands for setup, branch recovery, inventory, and future workflows.
-- [docs/DATA_LAYOUT.md](docs/DATA_LAYOUT.md): raw and derived data layout, schemas, and safety rules.
-- [docs/CODEX_STUDY_HUB_INTEGRATION.md](docs/CODEX_STUDY_HUB_INTEGRATION.md): rule for any future web GUI.
-- [docs/RESERVE_GRIDBOT_RESEARCH.md](docs/RESERVE_GRIDBOT_RESEARCH.md): banded lot/reserve accounting, recovery diagnostics, and multi-window XRP results.
-- [docs/L2_BOOK_RECONSTRUCTION.md](docs/L2_BOOK_RECONSTRUCTION.md): deterministic book contract, two frozen XRP validations, provenance, and strict-consumer rules.
-- [docs/L2_GRIDBOT_FILL_MODEL.md](docs/L2_GRIDBOT_FILL_MODEL.md): conservative strict-L2 order lifecycle, hand-checked fixtures, audited price controls, clock sensitivity, and the 500 ms latency stress.
 
 ## Current Status
 
@@ -204,6 +206,74 @@ V1.4 adds a default-off, causal price-only entry guard. Add `--entry-guard ema_c
 
 Set `--overflow-global-active-lot-budget-cap 100` to test one additional `$5` tranche per crossed level under a shared `$100` overflow ceiling; `0` is the default fixed control. The first bounded overflow test increased completed cycles but also trapped exposure, fees, drawdown, and loss, so overflow remains disabled by default. See [docs/RESERVE_GRIDBOT_RESEARCH.md](docs/RESERVE_GRIDBOT_RESEARCH.md) for the exact accounting and verified comparison.
 
+## Profiling and Performance Notes
+
+These measurements are a local verification baseline, not a production-throughput or exchange-latency claim. They used the sanitized checkout on Windows with CPython 3.12.13, generated test fixtures, and `PYTHONDONTWRITEBYTECODE=1`; filesystem cache and machine load were not controlled. Three fresh process-level runs of `python -m unittest discover -s tests -q` produced:
+
+| Measurement | Samples | Average | Minimum | Median | Maximum | Result |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Full synthetic test suite | 3 | 6.425 s | 6.359 s | 6.422 s | 6.495 s | 160 tests discovered; 159 passed and one Windows symlink-permission test skipped |
+
+A separate `cProfile` run completed in 6.303 profile seconds. Its largest cumulative paths were:
+
+| Profile path | Calls | Cumulative time | What the path covers |
+| --- | ---: | ---: | --- |
+| `_io.open` | 3,780 | 2.786 s | Temporary fixture, artifact, and audit-file access across the suite |
+| `normalize_files` | 18 | 2.258 s | Parsing, validation, partitioned output, reconciliation, and provenance work |
+| Normalizer `_sha256_file` | 1,185 | 1.563 s | Source and artifact integrity hashing |
+| `run_book_reconstruction` | 48 | 0.940 s | Gap-aware book replay and emitted-window construction |
+| Book `_sha256_file` | 455 | 0.755 s | Reconstruction input and artifact integrity hashing |
+
+Cumulative profile rows overlap because a caller includes time spent in its callees. The useful conclusion is therefore limited: in this synthetic suite, temporary-file I/O, hashing, and repeated audit work cost more than the strategy arithmetic.
+
+The repository also records larger functional validations. These counts show the amount of evidence processed, but the original runs did not record comparable wall-clock timings, so they are not throughput benchmarks:
+
+| Audited path | Recorded scale | Integrity result |
+| --- | --- | --- |
+| [Normalization](docs/PROJECT_PLAN.md) | 35,574 canonical envelopes to 344,664 semantic rows plus one session row | Zero quarantine or reconciliation errors; one 53-number source gap remained explicit and observed-only |
+| [L2 reconstruction](docs/L2_BOOK_RECONSTRUCTION.md) | 61,671 envelopes across two bounded prefixes to 41,829 emitted valid states | Zero strict-consumer audit errors; this was bounded-window, not archive-wide, evidence |
+| [Strict fill replay](docs/L2_GRIDBOT_FILL_MODEL.md) | 22,778 depth-10 book states in one frozen full-window comparison | Clock-only variants retained identical fill identities and conservation results |
+
+For compute-cost discussion, let `N` be input envelopes, `F` input files, `R` emitted rows, `L` live price levels, `B` emitted book states, `D` visible depth, `A` active simulated orders, `C` candles, and `S` grid slots:
+
+| Stage | Approximate work and retained state | Current scaling pressure |
+| --- | --- | --- |
+| Collection audit and normalization | File-order processing is linear in input and output; receive-order merging adds `O(N log F)`. Hashing is linear in bytes, the merge holds one head per input file, and partition writers cap open handles. | JSON parsing/serialization, SQLite-backed sequence tracking, partitioned writes, and source/artifact rereads for hashes and reconciliation. |
+| L2 reconstruction | A price-level insert or removal can be `O(L)` because sorted Python lists shift. Visible snapshots cost `O(D)`; full-hash checkpoints scan the book. The runner currently retains selected envelopes and emitted replay state. | Large windows and emit-every-message settings increase memory and output volume as well as replay work. |
+| Strict L2 fills | Per book state, active orders are sorted and checked against visible depth, approximately `O(A log A + D)` before output costs. | Dense order cohorts, deeper visible books, and retained order/fill/equity events. |
+| Reserve-grid replay | The main replay is approximately `O(C * S)`, followed by per-lot diagnostic horizon lookups. | Long candle histories, dense grids, and retained lots, events, equity rows, and diagnostics. |
+
+The next useful performance work would be a checked-in generated-fixture benchmark that sweeps those dimensions and reports records per second, output bytes, and peak resident memory. That would separate transformation cost from end-to-end integrity-audit cost without weakening the hashes or reconciliations. If memory becomes limiting, the first implementation candidate to measure is streaming reconstruction outputs instead of retaining complete replay snapshots.
+
 ## Web GUI Rule
 
 If MoneyMan needs a web GUI, it should plug into the existing Codex Word Game / Codex Study Hub web app instead of starting a separate visible server, URL, or port. The intended user experience is one local hub, one visible port, and a MoneyMan section inside that hub.
+
+## Complete Sanitized Git Graph
+
+The complete public-safe history explanation is in [`DEVELOPMENT_HISTORY.md`](DEVELOPMENT_HISTORY.md). This graph includes every commit reachable from the preserved real branch heads.
+
+```text
+* [main] 2026-07-22 | Close collector and normalization audit gaps
+*        2026-07-22 | Finish audited collector and normalization foundation
+*        2026-07-22 | Validate 500 ms strict L2 latency stress
+*        2026-07-22 | Pre-register 500 ms strict L2 latency stress
+*        2026-07-22 | Validate strict L2 clock sensitivity
+*        2026-07-21 | Validate strict L2 fills on second XRP window
+*        2026-07-21 | Add conservative strict L2 grid fills
+*        2026-07-21 | Add audited Coinbase L2 book reconstruction
+*        2026-07-20 | Add causal EMA reserve-grid entry guard
+*        2026-07-12 | Document multi-window reserve grid validation
+*        2026-07-12 | Add gridbot lot recovery diagnostics
+*        2026-07-11 | Add bounded gridbot overflow experiment
+*        2026-07-11 | Add banded reserve gridbot research
+*        2026-07-09 | Add Coinbase fee profile for gridbot
+*        2026-07-09 | Add first gridbot backtester
+*        2026-07-09 | Add external candle fallback tools
+*        2026-07-08 | Add cleanup and fallback data tools
+*        2026-07-08 | Recover MoneyMan pipeline and data tools
+*        2026-07-04 | Add MoneyMan project planning docs
+| * [codex/add-coinbase-logger-roadmap] 2026-06-19 | add Coinbase logger and research roadmap
+|/
+*        2025-08-03 | Initial commit
+```
